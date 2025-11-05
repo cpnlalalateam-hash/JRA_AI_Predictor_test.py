@@ -1,0 +1,70 @@
+# ✅ JRA_AI_Predictor_prototype（テスト版）
+
+import pandas as pd
+import numpy as np
+import xgboost as xgb
+from fastapi import FastAPI
+from pydantic import BaseModel
+from typing import List, Optional
+
+app = FastAPI(title="JRA AI Predictor Test Version")
+
+# --- モデルの読み込み（今回はダミー） ---
+MODEL = None
+
+# --- 入力形式定義 ---
+class HorseInput(BaseModel):
+    horse_id: str
+    horse_name: Optional[str]
+    age: Optional[int]
+    sex: Optional[str]
+    jockey: Optional[str]
+    trainer: Optional[str]
+    weight: Optional[float]
+    last_pos: Optional[int]
+    recent_form_score: Optional[float]
+    dist: Optional[int]
+    course: Optional[str]
+    ground: Optional[str]
+    odds: Optional[float]
+
+class RaceRequest(BaseModel):
+    race_id: str
+    horses: List[HorseInput]
+
+# --- 仮の予測関数（テスト用） ---
+@app.post("/predict")
+async def predict(rq: RaceRequest):
+    # 簡単なスコアを計算（実際のAIモデルではない）
+    results = []
+    for h in rq.horses:
+        base_score = (100 - (h.last_pos or 10)) + (h.recent_form_score or 50) / 10 - (h.odds or 10)
+        prob_win = max(0.01, min(0.9, base_score / 100))
+        results.append({
+            "horse_id": h.horse_id,
+            "horse_name": h.horse_name,
+            "prob_win": round(prob_win, 3)
+        })
+
+    # 並べ替え
+    sorted_results = sorted(results, key=lambda x: x["prob_win"], reverse=True)
+
+    return {"race_id": rq.race_id, "predictions": sorted_results}
+
+# --- 起動方法 ---
+# 1️⃣ このファイルを保存（例: JRA_AI_Predictor_test.py）
+# 2️⃣ ターミナルで以下を実行：
+#     uvicorn JRA_AI_Predictor_test:app --reload --port 8000
+# 3️⃣ ブラウザで http://127.0.0.1:8000/docs を開く
+# 4️⃣ Try it out → POST /predict → 以下のJSONを入力：
+# {
+#   "race_id": "20251105-10",
+#   "horses": [
+#     {"horse_id":"H001","horse_name":"サンプルA","age":5,"sex":"M","jockey":"武豊","trainer":"池江","weight":58,"last_pos":3,"recent_form_score":75,"dist":1800,"ground":"良","odds":4.2},
+#     {"horse_id":"H002","horse_name":"サンプルB","age":4,"sex":"F","jockey":"川田","trainer":"矢作","weight":54,"last_pos":7,"recent_form_score":62,"dist":1800,"ground":"良","odds":15.0}
+#   ]
+# }
+# 5️⃣ 勝率予測の仮データが返る（正常動作確認用）
+
+# --- RenderやGitHub Pagesに繋ぐ前のテスト用 ---
+# このコードが動けば、次に本番AIモデル(xgboost版)とJRAデータを連結して精度アップできます。
